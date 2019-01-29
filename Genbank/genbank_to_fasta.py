@@ -1,6 +1,7 @@
 ###############################################################################
-#Convert genbank to gff3 format
+#Convert genbank to fasta format
 #
+#@requires Biopython
 #@author:charles.hefer@gmail.com
 #@version:0.1
 ###############################################################################
