@@ -1,5 +1,5 @@
 ###############################################################################
-#Converts a ERCC fasta file to a ERCC gtf file
+#Converts a fasta file to a gtf file
 #
 #@requires: biopython
 #@author:charles.hefer@gmail.com
@@ -19,9 +19,9 @@ def __main__():
 	
 	
 	if not options.input:
-		parser.error("Need to specify the input file")
+		parser.error("Need to specify the input fasta file")
 	if not options.output:
-		parser.error("Need to specify the output file")
+		parser.error("Need to specify the output gtf file")
 		
 	gtf_lines = []
 	
