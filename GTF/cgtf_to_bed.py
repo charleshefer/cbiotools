@@ -34,8 +34,9 @@ def __main__():
 			#sys.exit()
 			chromosome = cols[0]
 			start, stop = cols[3:5]
+			start = str(int(start) - 1)
 			name = cols[8].replace(" ","=").replace(";=", "")
-			bed_lines.append(" ".join([chromosome, start, stop, name]))
+			bed_lines.append("\t".join([chromosome, start, stop, name]))
 		
 				
 	with open(options.output, "w") as outhandle:
