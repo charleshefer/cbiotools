@@ -1,0 +1,31 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+cov <- read.table("./all_coverage.txt",
+                  header=T)
+```
+
+
+```{r}
+library(ggplot2)
+```
+
+```{r}
+
+ggplot(cov, aes(x=Chrom, y=Cov, fill=Lane)) + geom_bar(stat="identity",position="dodge") + theme_light()
+
+```
+
+
+
+```{r}
+ggplot(cov, aes(x=Chrom, y=Cov, fill=Lane)) + geom_bar(stat="identity", position="dodge") + facet_grid(Lane ~ .) + theme_bw()
+
+```
