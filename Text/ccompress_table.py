@@ -30,13 +30,17 @@ def __main__():
 		ucol = int(options.col) - 1
 	except:
 		parser.error("Can not convert the --unique-id to an integer, try again")
-		
+	if options.sep == "\\t":
+		options.sep = "\t"
+
+
 	unique_lines = {}
 
 	with open(options.input, "r") as handle:
 		for line in handle:
 			line = line.rstrip()
 			cols = line.split(options.sep)
+			print(cols)
 			
 			#if unqique column has neven been seen before:
 			if cols[ucol] not in unique_lines.keys():
@@ -45,8 +49,13 @@ def __main__():
 					unique_lines[cols[ucol]][i] = [cols[i]]
 			else:
 				for i in range(0,len(cols)):
-					unique_lines[cols[ucol]][i].append(cols[i])
-	
+					#this can through a keyerror if
+					#the first instance of the ucol has no
+					#other columns
+					try:
+						unique_lines[cols[ucol]][i].append(cols[i])
+					except KeyError:
+						unique_lines[cols[ucol]][i] = [cols[i]]
 	for entry in unique_lines.keys():
 		for column in unique_lines[entry]:
 			unique_lines[entry][column] = list(set(unique_lines[entry][column]))
@@ -56,18 +65,9 @@ def __main__():
 		for entry in unique_lines.keys():
 			outline = []
 			for column in unique_lines[entry]:
-				outline.append(";;".join(unique_lines[entry][column]))
-			handle.write(",".join(outline) + "\n")
-
-
-
+				outline.append(";".join(unique_lines[entry][column]))
+			handle.write(options.sep.join(outline) + "\n")
 	
-
-
-
-
-			
-		
 if __name__ == "__main__":
 	__main__()
 	
