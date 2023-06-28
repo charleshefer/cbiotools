@@ -1,0 +1,150 @@
+---
+title: "Random Sampling"
+author: "Charles Hefer"
+date: "`r Sys.Date()`"
+output: 
+  bookdown::html_document2:
+    toc: true
+    toc_depth: 4
+    df_print: paged
+    code_folding: hide
+    fig_caption: TRUE
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+if(!require("tidyverse")) {
+  install.packages("tidyverse")
+}
+library(tidyverse)
+
+if (!require("readxl")) {
+  install.packages("readxl")
+}
+library("readxl")
+
+if (!require("writexl")) {
+  install.packages("writexl")
+}
+library("writexl")
+
+
+```
+
+# A Random Sampler
+
+Read the input file.
+
+```{r}
+samples <- readxl::read_xlsx("GFC project and batch info milk species comparison.xlsx",
+                           sheet="Sample List for all samples",
+                           range="B4:G616") %>%
+  mutate("Batch" = NA)
+samples
+```
+
+The aim is to generate a balanced randomised sample sheet for GFC analysis.
+
+How many species?
+
+```{r}
+samples %>%
+  group_by(Species) %>%
+  summarise(n=n())
+```
+
+# Duplicate Injections
+
+Randomly pick 36 samples, 9 from each species that will serve as duplicated injection samples.
+
+
+```{r}
+duplicate_injections <- data.frame()
+
+for (species in c("Cow", "Goat", "Deer", "Sheep")) {
+  #print(species)
+  selected_samples <- samples %>%
+    dplyr::filter(Species == Species) %>%
+    dplyr::sample_n(9)
+  duplicate_injections <- rbind(duplicate_injections, selected_samples)
+}
+
+duplicate_injections
+
+# I want these duplicate injection to be distributed evenly across the 18 batches
+duplicate_injections_batched <- data.frame()
+
+for (i in seq(1:18)) {
+  batched_injections_selected <- duplicate_injections %>%
+    dplyr::sample_n(2) %>%
+    mutate(Batch = paste0("B", i)) %>%
+    mutate(`Sample Code` = paste0(`Sample Code`, "-dupl"))
+  duplicate_injections_batched <- rbind(duplicate_injections_batched,
+                                        batched_injections_selected)
+}
+
+duplicate_injections_batched
+```
+
+Randomly assign the samples to each of the 18 batches
+
+```{r}
+random_sample_batches <- data.frame()
+
+for (i in seq(1,18)) {
+  batched_samples <- samples %>%
+    dplyr::sample_n(36) %>%
+    mutate(Batch=paste0("B", i))
+  random_sample_batches <- rbind(random_sample_batches, batched_samples)
+}
+
+random_sample_batches
+
+```
+
+Merge the injections with the samples
+
+```{r}
+batched_samples <- rbind(random_sample_batches,
+                       duplicate_injections_batched) %>%
+  arrange(Batch)
+
+
+batched_samples
+```
+
+Now, randomly assign the order of the 38 samples in the batch.
+
+```{r}
+final_samples <- data.frame()
+
+for (batch in unique(batched_samples$Batch)) {
+  print(batch)
+  random_samples <- batched_samples %>%
+    dplyr::filter(Batch == batch) %>%
+    dplyr::sample_n(36)
+  
+  final_samples <- rbind(final_samples, random_samples)
+}
+
+final_samples
+```
+```{r}
+final_samples %>%
+  ggplot(aes(x=Species, fill=Batch)) +
+  geom_histogram(stat="count")
+```
+
+```{r}
+final_samples %>%
+  ggplot(aes(x=Batch, fill=Species)) + 
+  geom_histogram(stat="count")
+```
+
+
+```{r}
+write.csv(final_samples,
+          file="Randomised_samples.csv")
+```
+
