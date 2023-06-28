@@ -1,25 +1,21 @@
 ###############################################################################
-#cfasta_cleaner
-#Reads in a fasta formatted file, writes out a standard format using
-#biopython
+#crockhopper_reformat
+#Reads in a tab seperated rockhopper file (typically _transcripts.txt)
+#and reformats the "predicted RNA field to a unique id"
 #
-#@requires biopython
 #@author:charles.hefer@gmail.com
 #@version:0.1
 ###############################################################################
 import optparse
-from Bio import SeqIO
-from Bio.Seq import Seq
-from Bio.SeqRecord import SeqRecord
 
 
 def __main__():
 	"""Parse the cmd lne options"""
 	parser = optparse.OptionParser()
 	parser.add_option("-i", "--input", default=None, dest="input",
-					  help="The input file")
+					  help="The input rockhopper file")
 	parser.add_option("-o", "--ouput", default=None, dest="output",
-					  help="The output file")
+					  help="The output rockhopper file")
 	(options, args) = parser.parse_args()
 	
 	if not options.input:
@@ -27,19 +23,24 @@ def __main__():
 	if not options.output:
 		parser.error("Need to specify the output file")
 	
-	#Read into RAM, will bomb if there are Gbs of entries
-	#but this has not happened yet.
-	#Better than IO overhead for most cases
-	fasta_records = []
+	records = []
+	counter = 1
 	
 	with open(options.input, "r") as handle:
-		for record in SeqIO.parse(handle, "fasta"):
-			new_record = SeqRecord(record._seq[::-1], id=record.id, description="")
-			fasta_records.append(new_record)
-	
+		for line in handle:
+			line = line.rstrip()
+			cols = line.split("\t")
+			if len(cols) == 1: break
+			if cols[6] == "predicted RNA":
+				counter = counter + 1
+				cols[6] = cols[6].replace(" ", "_") + "_" + str(counter)
+			new_line = "\t".join(cols)
+			records.append(new_line)
+
+
 	with open(options.output, "w") as outhandle:
-		SeqIO.write(fasta_records, outhandle, "fasta")
-		
+		for record in records:
+			outhandle.write(record + "\n")
+	
 if __name__ == "__main__":
 	__main__()
-	
