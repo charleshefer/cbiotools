@@ -23,9 +23,9 @@ library("cowplot")
 args = commandArgs(trailingOnly=TRUE)
 
 #for debuggins
-args <- c("20-PoM16-1_vs_DUG42.depth", 
-          "01-ViL-Nal1_vs_DUG42.png",
-          "01-ViL-Nal1_vs_DUG42.summary")
+#args <- c("20-PoM16-1_vs_DUG42.depth", 
+#          "01-ViL-Nal1_vs_DUG42.png",
+#          "01-ViL-Nal1_vs_DUG42.summary")
 
 if (length(args)<3) {
   stop("Specify both the input depth file, output png and output summary files")
@@ -33,6 +33,7 @@ if (length(args)<3) {
 
 threshold <- function(df) {
   th_df <- NULL
+  th_df$name <- args[1]
   th_df$x0 <- sum(df$V3==0)/length(df$V3)
   th_df$x1 <- sum(df$V3==1)/length(df$V3)
   th_df$x2 <- sum(df$V3==2)/length(df$V3)
