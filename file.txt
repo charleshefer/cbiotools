@@ -1,0 +1,17 @@
+Abi
+Bam
+EMBOSS
+Fasta
+Fastq
+GFF
+GTF
+Genbank
+Licence
+README.md
+RandomBalancedSampling
+Rockhopper
+Text
+file.txt
+ncbi
+template.py
+trembl
