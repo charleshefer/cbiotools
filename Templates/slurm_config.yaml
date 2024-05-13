@@ -1,0 +1,27 @@
+#slurm profile
+cluster:
+  sbatch 
+    --ntasks=1
+    --cpus-per-task={threads}
+    --mem={resources.mem_mb}
+    --time={resources.time}
+    --job-name=smk-{rule}
+    --nodes=1
+    --parsable
+    --partition={resources.partition}
+default-resources:
+  - mem_mb=20000
+  - time=119
+  - partition=compute
+jobs: 12
+latency-wait: 120
+max-jobs-per-second: 5
+#keep-going: True
+rerun-incomplete: True
+printshellcmds: True
+scheduler: greedy
+use-conda: True
+conda-frontend: mamba
+cluster-status: ../config/status.py
+cluster-cancel: scancel
+max-status-checks-per-second: 1
