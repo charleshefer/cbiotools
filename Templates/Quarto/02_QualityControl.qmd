@@ -1,0 +1,196 @@
+---
+title: "Quality Control"
+editor: source
+---
+
+```{r, include=FALSE, warning=FALSE, echo=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+#source some global libraries, from globals.R
+source("globals.R")
+theme_set(theme_bw())
+
+base::load("01_ExperimentSetup.Rdata")
+
+```
+
+# Quality Control
+
+Make use of several plots to visualize the pattern for missing values, the number of proteins identified, and the number of proteins that are common or unique across the samples.
+
+PCA is the main tool to evaluate the relationship between samples and the QCMIX control samples.
+
+## Missing value patterns
+
+Missing values is a known problem within proteomics data. Too many missing values causes doubt about the real abundance values for peptides. Below is a plot of the dataset with no missing values, as well as the filtered dataset where the filter requirement is a protein that is measured in at least 75% of the samples, for a specific group.
+
+```{r}
+#| label: plot_missval
+#| layout-ncol: 2
+#| fig-cap: Missing value pattern for the dataset
+#| fig-subcap: 
+#|   - Unfiltered data
+#|   - Filtered Dataset
+#| warning: False
+#| message: False
+#| cache: True
+
+plot_missval(SE)
+
+#as an illustration, filter based on the condition
+filt_SE <- filter_proteins(SE, type="condition", thr=0.25)
+plot_missval(filt_SE)
+```
+
+
+
+### Number of Proteins per sample
+
+Plot the number of proteins detected in each of the samples
+
+```{r}
+#| label: plot_proteins_per_sample
+#| layout-ncol: 2
+#| fig-cap: Number of proteins per sample.
+#| fig-subcap: 
+#|   - Unfiltered data
+#|   - Filtered Dataset
+#| warning: False
+#| message: False
+
+
+plot_numbers(SE)
+plot_numbers(filt_SE)
+```
+
+### Abundance distribution
+
+Inspect the distribution of abundance levels between samples.
+
+```{r warning=FALSE}
+#| label: plot_abundance
+#| layout-ncol: 2
+#| fig-cap: Protein abundance distribution
+#| fig-subcap: 
+#|   - Unfiltered data
+#|   - Filtered Dataset
+#| warning: False
+#| message: False
+
+
+get_df_wide(SE) %>%
+  #assign the ID to the rownames
+  magrittr::set_rownames(.$ID) %>%
+  #filter the name and ID columns
+  dplyr::select(-c(ID, name)) %>%
+  t() %>%
+  data.frame() %>%
+  mutate(sample = rownames(.)) %>%
+  mutate(group = METADATA$condition) %>%
+  pivot_longer(names_to="protein", values_to="abundance", -c(sample, group)) %>%
+  ggplot(aes(x=sample, y=abundance, fill=group)) + 
+    geom_boxplot() + 
+    theme_bw() +
+    theme(axis.text.x = element_text(angle=90, vjust=0.5, hjust=1)) + 
+    xlab("") + 
+    ylab("log2(abundance)")
+
+
+get_df_wide(filt_SE) %>%
+  #assign the ID to the rownames
+  magrittr::set_rownames(.$ID) %>%
+  #filter the name and ID columns
+  dplyr::select(-c(ID, name)) %>%
+  t() %>%
+  data.frame() %>%
+  mutate(sample = rownames(.)) %>%
+  mutate(group = METADATA$condition) %>%
+  pivot_longer(names_to="protein", values_to="abundance", -c(sample, group)) %>%
+  ggplot(aes(x=sample, y=abundance, fill=group)) + 
+    geom_boxplot() + 
+    theme_bw() +
+    theme(axis.text.x = element_text(angle=90, vjust=0.5, hjust=1)) + 
+    xlab("") + 
+    ylab("log2(abundance)")
+```
+
+
+
+## PCA QCMix samples
+
+Perform a PCA analysis for the experiment, with a focus in the reproducibility of the QC_Mix samples. This is being done on the filtered dataset.
+
+
+
+```{r}
+#| label: get_df
+
+
+lfq <- get_df_wide(filt_SE) %>%
+  #assign the ID to the rownames
+  magrittr::set_rownames(.$ID) %>%
+  #filter the name and ID columns 
+  dplyr::select(-c(name, ID)) %>%
+  t()
+
+#filter out proteins that were in less than 0.75 of the samples
+#One-hit wonders....
+#t_lfq <- t(lfq)
+#lfq_filt <- t(t_lfq[rowSums(ifelse(is.na(t_lfq),1,0)) < round(ncol(t_lfq)*0.5),])
+
+#validate that the lfq rows match the expr cols
+rownames(lfq) == METADATA$name
+```
+
+```{r}
+#| label: perform_pca
+#| cache: True
+
+#Perform the PCA
+pca_lfq <- pca(lfq,
+              ncomp=3,
+              center=T,
+              scale=F)
+```
+
+From the original `r dim(lfq)[2]` proteins, filtered out based in their missingness in the experiment. These proteins were removed prior to performing the PCA.
+
+
+```{r}
+#| label: pca_plot_generation
+#| include: FALSE
+#| echo: FALSE
+
+plot1 <- plotIndiv(pca_lfq,
+          comp=c(1,2),
+          group=METADATA$condition,
+          ellipse=F,
+          title="QC PCA (comp 1,2)",
+          legend=F)
+
+plot2 <- plotIndiv(pca_lfq,
+          comp=c(2,3),
+          group=METADATA$condition,
+          ellipse=F,
+          title="QC PCA (comp 2,3)",
+          legend=F)
+```
+
+```{r fig.cap="Principle Component Analysis on the dataset, including the QC_Mix samples. Figure (a) represents the first 2 components, and figure (b) components 2 and 3."}
+plot_grid(plot1$graph,
+          plot2$graph,
+          ncol=2,
+          nrow=1,
+          labels="auto",
+          rel_widths = c(1,1))
+```
+
+The QCMix samples cluster as expected. There is quite a bit of biological variation, with especially sample `None_None_1` being an outlier in the dataset.
+
+These samples are being used for the `Sample LFQ` analysis that follows next.
+
+```{r}
+#save the QC-ed dataset, if there were any changes
+METADATA <- metadata
+save(METADATA, SE, MAXLFQ, file="02_QualityControl.Rdata")
+```

@@ -1,0 +1,160 @@
+---
+title: "Experiment setup"
+editor: source
+
+params:
+  #any user configurable parameters
+  LFQ_HANDLE: "../resources/lfq.proteins.xlsx"
+---
+
+```{r, include=FALSE, warning=FALSE, echo=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+#source some global libraries, from globals.R
+source("globals.R")
+theme_set(theme_bw())
+```
+
+# Data ingress and experiment design
+
+## LFQ data ingress
+
+Read the input file `r params$LFQ_HANDLE`.
+
+```{r}
+#| label: xlsx_ingress
+#| cache: True
+#read the input data from disk, parse out the relevant data needed for the LFQ
+#analysis
+
+lfq_handle <- openxlsx::read.xlsx(xlsxFile=params$LFQ_HANDLE)
+
+accession_description <- lfq_handle %>%
+  dplyr::select(Accession, Description)
+
+lfq <- lfq_handle %>%
+  #filter out the top proteins
+  dplyr::filter(Top) %>%
+  dplyr::select(-c('Protein.Group', Top, Significance, 'Coverage.(%)', 
+                '#Peptides', '#Unique', PTM, 'Avg..Mass', Description)) %>%
+  magrittr::set_rownames(.$Accession) %>%
+  dplyr::select(-c(Accession))
+
+#colnames(lfq)
+
+#keep the original lfq
+lfq.orig <- lfq
+
+```
+
+Including the QC samples, the duplicate injections, and the biological samples,  there are a total of `r dim(lfq)[1]` proteins measured across these `r dim(lfq)[2]` samples.
+
+
+```{r}
+#| label: metadata
+#| cache: False
+
+#create a metadata file from the input lfq file
+
+label <- colnames(lfq)
+
+sample_number <- gsub("([0123456789]+?)_(.+)", "\\1", label)
+sample_number <- gsub("(.+)?_(.?)", "\\2", sample_number)
+
+run_number <- gsub("[0123456789+]_(.+)_[0123456789+?]", "\\2", label)
+run_number <- gsub("(.+)?_(.?)", "\\2", run_number)
+
+sample_group <- gsub("([0123456789]+)_(.+?)_*[_dup]*R0[123]_([0123456789]+)", "\\2", label)
+
+day <- gsub("(.+?)_(.+)", "\\1", sample_group)
+
+treatment <- gsub("(.+?)_(.+)", "\\2", sample_group)
+
+metadata <- NULL
+metadata$label <- label
+metadata$sample_number <- sample_number
+metadata$run_number <- run_number
+metadata$day <- day
+metadata$treatment <- treatment
+
+#convert to a data frame
+metadata <- data.frame(metadata) %>%
+  mutate(treatment = ifelse(!(treatment %in% c("C", "LB", "H2O")), 
+                            "QCMix", 
+                            treatment)) %>%
+  mutate(condition = paste(day,treatment, sep="_"))
+
+#automatically assign the replicates based on the condition
+replicates <- rep(0,times=length(metadata$condition))
+for (group in unique(metadata$condition)) {
+  i = 1
+  for (j in seq(1,length(metadata$condition))) {
+    if (metadata$condition[j] == group) {
+      replicates[j] <- i
+      i = i + 1
+    }
+  }
+}
+
+metadata$replicate <- replicates
+metadata$name <- paste(metadata$condition, metadata$replicate, sep="_")
+
+```
+
+
+A summarized table for the number of samples per condition is present in @tbl-cond, followed the complete record of all the samples in the metadata file in @tbl-metadata.
+
+```{r}
+#| label: tbl-cond
+#| tbl-cap: The number of samples per condition
+
+metadata %>%
+  group_by(condition) %>%
+  summarise(number_of_samples = n()) %>%
+  kable()
+```
+
+
+```{r}
+#| label: tbl-metadata
+#| tbl-cap: The metadata table for the experiment
+
+metadata %>%
+  kable()
+
+```
+
+
+
+## Summarized Experiment
+
+Use the `LFQ` data file and the `Metadata` file to create a `SummarizedExperiment()`, which enables the downstream analysis.
+
+:::{.callout-note collapse="true}
+The SummarizedExperiment allows for the use of downstream plotting and analysis functions.
+:::
+
+```{r}
+#| label: create_SE
+
+#make sure the colum names of the lfq table is sorted
+lfq_sorted <- lfq[,order(colnames(lfq))]
+
+se <- lfq
+se$ID <- rownames(lfq)
+se$name <- rownames(lfq)
+
+sample_column_positions <- seq(1, length(colnames(se)) - 2)
+SE <- make_se(se, sample_column_positions, metadata)
+```
+
+```{r}
+#| label: save_se
+#save the summarized experiment and the metadata table to file
+METADATA <- metadata
+LFQ <- lfq
+LFQ.ORIG <- lfq.orig
+
+save(METADATA, LFQ, LFQ.ORIG, SE, file="01_ExperimentSetup.RDS")
+```
+

@@ -1,0 +1,24 @@
+project:
+  type: book
+
+book:
+  title: "Project Title"
+  chapters: 
+    - index.qmd
+  #output-dir: _output
+
+format:
+   html:
+     fig-width: 10
+     fig-height: 4
+     fig-dpi: 600
+     code-fold: true
+     toc: true
+     toc-depth: 4
+     toc-location: left
+     toc-title: Contents
+     df-print: paged
+     embed-resources: true
+     standalone: true
+      
+    
