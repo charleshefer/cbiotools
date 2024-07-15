@@ -1,0 +1,18 @@
+---
+title: "Agr96 Proteomics"
+editor: source
+
+params:
+  #any user configurable parameters
+  LFQ_HANDLE: "../resources/lfq.proteins.xlsx"
+---
+
+# About
+
+Proteomics analysis (LFQ) for the AgR96 samples from Marion and Mark.
+
+{{< include 01_ExperimentSetup.qmd >}}
+{{< include 02_QualityControl.qmd >}}
+
+
+

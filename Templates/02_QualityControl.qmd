@@ -10,7 +10,7 @@ knitr::opts_chunk$set(echo = FALSE)
 source("globals.R")
 theme_set(theme_bw())
 
-base::load("01_ExperimentSetup.Rdata")
+base::load("01_ExperimentSetup.RDS")
 
 ```
 
@@ -22,15 +22,12 @@ PCA is the main tool to evaluate the relationship between samples and the QCMIX 
 
 ## Missing value patterns
 
-Missing values is a known problem within proteomics data. Too many missing values causes doubt about the real abundance values for peptides. Below is a plot of the dataset with no missing values, as well as the filtered dataset where the filter requirement is a protein that is measured in at least 75% of the samples, for a specific group.
+Missing values is a known problem within proteomics data. Too many missing values causes doubt about the real abundance values for peptides. Plot the missing value pattern for the `r dim(SE)[1]` detected proteins in @fig-plot_missval.
 
 ```{r}
-#| label: plot_missval
-#| layout-ncol: 2
+#| label: fig-plot_missval
+#| layout-ncol: 1
 #| fig-cap: Missing value pattern for the dataset
-#| fig-subcap: 
-#|   - Unfiltered data
-#|   - Filtered Dataset
 #| warning: False
 #| message: False
 #| cache: True
@@ -38,42 +35,40 @@ Missing values is a known problem within proteomics data. Too many missing value
 plot_missval(SE)
 
 #as an illustration, filter based on the condition
-filt_SE <- filter_proteins(SE, type="condition", thr=0.25)
-plot_missval(filt_SE)
+#filt_SE <- filter_proteins(SE, type="condition", thr=0.25)
+#plot_missval(filt_SE)
 ```
 
+
+:::{.callout-note}
+Typically we do not expect the biological samples to cluster together, unless there is a specific condition where a protein will be absent in that condition. However, this will be a small subset of the proteins identified.
+:::
 
 
 ### Number of Proteins per sample
 
-Plot the number of proteins detected in each of the samples
+The total number of proteins detected is plotted as a histogram in @fig-plot_proteins_per_samnple.
 
 ```{r}
-#| label: plot_proteins_per_sample
-#| layout-ncol: 2
+#| label: fig-plot_proteins_per_sample
+#| layout-ncol: 1
 #| fig-cap: Number of proteins per sample.
-#| fig-subcap: 
-#|   - Unfiltered data
-#|   - Filtered Dataset
 #| warning: False
 #| message: False
 
 
 plot_numbers(SE)
-plot_numbers(filt_SE)
+#plot_numbers(filt_SE)
 ```
 
 ### Abundance distribution
 
-Inspect the distribution of abundance levels between samples.
+Inspect the distribution of abundance levels between samples in @fig-plot_abundance.
 
 ```{r warning=FALSE}
-#| label: plot_abundance
-#| layout-ncol: 2
-#| fig-cap: Protein abundance distribution
-#| fig-subcap: 
-#|   - Unfiltered data
-#|   - Filtered Dataset
+#| label: fig-plot_abundance
+#| layout-ncol: 1
+#| fig-cap: Protein abundance distribution (log2)
 #| warning: False
 #| message: False
 
@@ -95,48 +90,26 @@ get_df_wide(SE) %>%
     xlab("") + 
     ylab("log2(abundance)")
 
-
-get_df_wide(filt_SE) %>%
-  #assign the ID to the rownames
-  magrittr::set_rownames(.$ID) %>%
-  #filter the name and ID columns
-  dplyr::select(-c(ID, name)) %>%
-  t() %>%
-  data.frame() %>%
-  mutate(sample = rownames(.)) %>%
-  mutate(group = METADATA$condition) %>%
-  pivot_longer(names_to="protein", values_to="abundance", -c(sample, group)) %>%
-  ggplot(aes(x=sample, y=abundance, fill=group)) + 
-    geom_boxplot() + 
-    theme_bw() +
-    theme(axis.text.x = element_text(angle=90, vjust=0.5, hjust=1)) + 
-    xlab("") + 
-    ylab("log2(abundance)")
 ```
 
 
 
-## PCA QCMix samples
+## Principle Component Analysis (PCA)
 
-Perform a PCA analysis for the experiment, with a focus in the reproducibility of the QC_Mix samples. This is being done on the filtered dataset.
-
+Perform a PCA analysis for the experiment, with a focus in the reproducibility of the QC_Mix samples.
 
 
 ```{r}
 #| label: get_df
+#| include: FALSE
+#| echo: FALSE
 
-
-lfq <- get_df_wide(filt_SE) %>%
+lfq <- get_df_wide(SE) %>%
   #assign the ID to the rownames
   magrittr::set_rownames(.$ID) %>%
   #filter the name and ID columns 
   dplyr::select(-c(name, ID)) %>%
   t()
-
-#filter out proteins that were in less than 0.75 of the samples
-#One-hit wonders....
-#t_lfq <- t(lfq)
-#lfq_filt <- t(t_lfq[rowSums(ifelse(is.na(t_lfq),1,0)) < round(ncol(t_lfq)*0.5),])
 
 #validate that the lfq rows match the expr cols
 rownames(lfq) == METADATA$name
@@ -144,7 +117,7 @@ rownames(lfq) == METADATA$name
 
 ```{r}
 #| label: perform_pca
-#| cache: True
+#| cache: TRUE
 
 #Perform the PCA
 pca_lfq <- pca(lfq,
@@ -153,13 +126,11 @@ pca_lfq <- pca(lfq,
               scale=F)
 ```
 
-From the original `r dim(lfq)[2]` proteins, filtered out based in their missingness in the experiment. These proteins were removed prior to performing the PCA.
-
-
 ```{r}
 #| label: pca_plot_generation
 #| include: FALSE
 #| echo: FALSE
+#| warning: FALSE
 
 plot1 <- plotIndiv(pca_lfq,
           comp=c(1,2),
@@ -185,12 +156,13 @@ plot_grid(plot1$graph,
           rel_widths = c(1,1))
 ```
 
-The QCMix samples cluster as expected. There is quite a bit of biological variation, with especially sample `None_None_1` being an outlier in the dataset.
+The `QCMix` samples cluster as expected in the center position of the plot. The `W2_LB` samples cluster nicely together, the same for `D0_H20` and `W2_C`. `D0_C` and `W2_H20` is not separated in the first or second component, but on the third. `D0_LB` shows a lot of variation.
 
-These samples are being used for the `Sample LFQ` analysis that follows next.
+Overall, PC1 explains 16% of the variance, PC2 10%, and PC3 9%. The samples are very similar.
 
 ```{r}
+#| label: save_qcmix_samples
 #save the QC-ed dataset, if there were any changes
 METADATA <- metadata
-save(METADATA, SE, MAXLFQ, file="02_QualityControl.Rdata")
+save(METADATA, SE, LFQ, LFQ.ORIG, file="02_QualityControl.Rdata")
 ```
